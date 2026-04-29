@@ -1,7 +1,22 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const FieldSize = 160;
+const LinuxStatfs = extern struct {
+    f_type: isize,
+    f_bsize: isize,
+    f_blocks: u64,
+    f_bfree: u64,
+    f_bavail: u64,
+    f_files: u64,
+    f_ffree: u64,
+    f_fsid: [2]i32,
+    f_namelen: isize,
+    f_frsize: isize,
+    f_flags: isize,
+    f_spare: [4]isize,
+};
+
+const FieldSize = 256;
 const ArtWidth = 43;
 
 const NixosArt = [_][]const u8{
@@ -42,6 +57,15 @@ const LinuxArt = [_][]const u8{
     "                            ",
 };
 
+const DistroLogo = struct {
+    id: []const u8,
+    art: []const []const u8,
+};
+
+const DistroLogos = [_]DistroLogo{
+    .{ .id = "nixos", .art = NixosArt[0..] },
+};
+
 const Style = struct {
     reset: []const u8,
     bold: []const u8,
@@ -50,13 +74,27 @@ const Style = struct {
     purple: []const u8,
     cyan: []const u8,
     blue: []const u8,
-    green: []const u8,
     orange: []const u8,
+    ok: []const u8,
+    warn: []const u8,
+    danger: []const u8,
 };
 
 const InfoField = struct {
     label: []const u8,
     value: []const u8,
+    kind: FieldKind,
+};
+
+const FieldKind = enum {
+    identity,
+    system,
+    desktop,
+    hardware,
+    package,
+    usage,
+    storage,
+    network,
 };
 
 const neon = Style{
@@ -67,8 +105,10 @@ const neon = Style{
     .purple = "\x1b[38;2;90;150;190m",
     .cyan = "\x1b[38;2;136;220;205m",
     .blue = "\x1b[38;2;74;144;226m",
-    .green = "\x1b[38;2;126;200;227m",
     .orange = "\x1b[38;2;170;190;205m",
+    .ok = "\x1b[38;2;92;255;138m",
+    .warn = "\x1b[38;2;249;199;74m",
+    .danger = "\x1b[38;2;255;82;82m",
 };
 
 const plain = Style{
@@ -79,8 +119,10 @@ const plain = Style{
     .purple = "",
     .cyan = "",
     .blue = "",
-    .green = "",
     .orange = "",
+    .ok = "",
+    .warn = "",
+    .danger = "",
 };
 
 pub const SystemInfo = struct {
@@ -90,6 +132,8 @@ pub const SystemInfo = struct {
     os_len: usize = 0,
     os_id: [FieldSize]u8 = undefined,
     os_id_len: usize = 0,
+    host: [FieldSize]u8 = undefined,
+    host_len: usize = 0,
     kernel: [FieldSize]u8 = undefined,
     kernel_len: usize = 0,
     arch: [FieldSize]u8 = undefined,
@@ -106,14 +150,40 @@ pub const SystemInfo = struct {
     cpu_len: usize = 0,
     gpu: [FieldSize]u8 = undefined,
     gpu_len: usize = 0,
+    gpu2: [FieldSize]u8 = undefined,
+    gpu2_len: usize = 0,
     memory: [FieldSize]u8 = undefined,
     memory_len: usize = 0,
+    swap: [FieldSize]u8 = undefined,
+    swap_len: usize = 0,
     display: [FieldSize]u8 = undefined,
     display_len: usize = 0,
+    display2: [FieldSize]u8 = undefined,
+    display2_len: usize = 0,
+    display3: [FieldSize]u8 = undefined,
+    display3_len: usize = 0,
     packages: [FieldSize]u8 = undefined,
     packages_len: usize = 0,
+    theme: [FieldSize]u8 = undefined,
+    theme_len: usize = 0,
+    icons: [FieldSize]u8 = undefined,
+    icons_len: usize = 0,
+    font: [FieldSize]u8 = undefined,
+    font_len: usize = 0,
+    cursor: [FieldSize]u8 = undefined,
+    cursor_len: usize = 0,
     terminal: [FieldSize]u8 = undefined,
     terminal_len: usize = 0,
+    disk: [FieldSize]u8 = undefined,
+    disk_len: usize = 0,
+    disk2: [FieldSize]u8 = undefined,
+    disk2_len: usize = 0,
+    disk3: [FieldSize]u8 = undefined,
+    disk3_len: usize = 0,
+    local_ip: [FieldSize]u8 = undefined,
+    local_ip_len: usize = 0,
+    locale: [FieldSize]u8 = undefined,
+    locale_len: usize = 0,
 
     fn userHost(self: *const SystemInfo) []const u8 {
         return self.user_host[0..self.user_host_len];
@@ -124,8 +194,9 @@ pub const SystemInfo = struct {
     }
 
     fn field(self: *const SystemInfo, comptime name: []const u8) []const u8 {
-        return switch (std.meta.stringToEnum(enum { os, kernel, arch, uptime, desktop, wm, shell, cpu, gpu, memory, display, packages, terminal }, name).?) {
+        return switch (std.meta.stringToEnum(enum { os, host, kernel, arch, uptime, desktop, wm, shell, cpu, gpu, gpu2, memory, swap, display, display2, display3, packages, theme, icons, font, cursor, terminal, disk, disk2, disk3, local_ip, locale }, name).?) {
             .os => self.os[0..self.os_len],
+            .host => self.host[0..self.host_len],
             .kernel => self.kernel[0..self.kernel_len],
             .arch => self.arch[0..self.arch_len],
             .uptime => self.uptime[0..self.uptime_len],
@@ -134,10 +205,23 @@ pub const SystemInfo = struct {
             .shell => self.shell[0..self.shell_len],
             .cpu => self.cpu[0..self.cpu_len],
             .gpu => self.gpu[0..self.gpu_len],
+            .gpu2 => self.gpu2[0..self.gpu2_len],
             .memory => self.memory[0..self.memory_len],
+            .swap => self.swap[0..self.swap_len],
             .display => self.display[0..self.display_len],
+            .display2 => self.display2[0..self.display2_len],
+            .display3 => self.display3[0..self.display3_len],
             .packages => self.packages[0..self.packages_len],
+            .theme => self.theme[0..self.theme_len],
+            .icons => self.icons[0..self.icons_len],
+            .font => self.font[0..self.font_len],
+            .cursor => self.cursor[0..self.cursor_len],
             .terminal => self.terminal[0..self.terminal_len],
+            .disk => self.disk[0..self.disk_len],
+            .disk2 => self.disk2[0..self.disk2_len],
+            .disk3 => self.disk3[0..self.disk3_len],
+            .local_ip => self.local_ip[0..self.local_ip_len],
+            .locale => self.locale[0..self.locale_len],
         };
     }
 };
@@ -157,6 +241,7 @@ pub fn collectSystemInfo() !SystemInfo {
     var info = SystemInfo{};
     setDefault(&info.os, &info.os_len, "Unknown Linux");
     setDefault(&info.os_id, &info.os_id_len, "linux");
+    setDefault(&info.host, &info.host_len, "Unknown");
     setDefault(&info.kernel, &info.kernel_len, "Unknown");
     setDefault(&info.arch, &info.arch_len, @tagName(builtin.cpu.arch));
     setDefault(&info.uptime, &info.uptime_len, "Unknown");
@@ -165,13 +250,27 @@ pub fn collectSystemInfo() !SystemInfo {
     setDefault(&info.shell, &info.shell_len, "Unknown");
     setDefault(&info.cpu, &info.cpu_len, "Unknown CPU");
     setDefault(&info.gpu, &info.gpu_len, "Unknown GPU");
+    setDefault(&info.gpu2, &info.gpu2_len, "");
     setDefault(&info.memory, &info.memory_len, "Unknown");
+    setDefault(&info.swap, &info.swap_len, "Unknown");
     setDefault(&info.display, &info.display_len, "Unknown");
+    setDefault(&info.display2, &info.display2_len, "");
+    setDefault(&info.display3, &info.display3_len, "");
     setDefault(&info.packages, &info.packages_len, "Unknown");
+    setDefault(&info.theme, &info.theme_len, "Unknown");
+    setDefault(&info.icons, &info.icons_len, "Unknown");
+    setDefault(&info.font, &info.font_len, "Unknown");
+    setDefault(&info.cursor, &info.cursor_len, "Unknown");
     setDefault(&info.terminal, &info.terminal_len, "Unknown");
+    setDefault(&info.disk, &info.disk_len, "Unknown");
+    setDefault(&info.disk2, &info.disk2_len, "");
+    setDefault(&info.disk3, &info.disk3_len, "");
+    setDefault(&info.local_ip, &info.local_ip_len, "Unknown");
+    setDefault(&info.locale, &info.locale_len, "Unknown");
 
     fillUserHost(&info);
     fillOs(&info);
+    fillHost(&info);
     fillKernel(&info);
     fillUptime(&info);
     fillDesktop(&info);
@@ -180,9 +279,14 @@ pub fn collectSystemInfo() !SystemInfo {
     fillCpu(&info);
     fillGpu(&info);
     fillMemory(&info);
+    fillSwap(&info);
     fillDisplay(&info);
     fillPackages(&info);
+    fillGtkSettings(&info);
     fillTerminal(&info);
+    fillDisks(&info);
+    fillLocalIp(&info);
+    fillLocale(&info);
     return info;
 }
 
@@ -191,19 +295,31 @@ fn render(writer: anytype, info: *const SystemInfo, use_color: bool) !void {
     const colors = [_][]const u8{ s.pink, s.purple, s.blue, s.cyan, s.blue, s.purple };
     const art = osLogo(info.osId());
     const fields = [_]InfoField{
-        .{ .label = "OS", .value = info.field("os") },
-        .{ .label = "Kernel", .value = info.field("kernel") },
-        .{ .label = "Arch", .value = info.field("arch") },
-        .{ .label = "Uptime", .value = info.field("uptime") },
-        .{ .label = "Desktop", .value = info.field("desktop") },
-        .{ .label = "WM", .value = info.field("wm") },
-        .{ .label = "Shell", .value = info.field("shell") },
-        .{ .label = "CPU", .value = info.field("cpu") },
-        .{ .label = "GPU", .value = info.field("gpu") },
-        .{ .label = "Memory", .value = info.field("memory") },
-        .{ .label = "Display", .value = info.field("display") },
-        .{ .label = "Packages", .value = info.field("packages") },
-        .{ .label = "Terminal", .value = info.field("terminal") },
+        .{ .label = "OS", .value = info.field("os"), .kind = .identity },
+        .{ .label = "Host", .value = info.field("host"), .kind = .identity },
+        .{ .label = "Kernel", .value = info.field("kernel"), .kind = .system },
+        .{ .label = "Uptime", .value = info.field("uptime"), .kind = .system },
+        .{ .label = "Packages", .value = info.field("packages"), .kind = .package },
+        .{ .label = "Shell", .value = info.field("shell"), .kind = .system },
+        .{ .label = "Display", .value = info.field("display"), .kind = .hardware },
+        .{ .label = "Display", .value = info.field("display2"), .kind = .hardware },
+        .{ .label = "Display", .value = info.field("display3"), .kind = .hardware },
+        .{ .label = "WM", .value = info.field("wm"), .kind = .desktop },
+        .{ .label = "Theme", .value = info.field("theme"), .kind = .desktop },
+        .{ .label = "Icons", .value = info.field("icons"), .kind = .desktop },
+        .{ .label = "Font", .value = info.field("font"), .kind = .desktop },
+        .{ .label = "Cursor", .value = info.field("cursor"), .kind = .desktop },
+        .{ .label = "Terminal", .value = info.field("terminal"), .kind = .system },
+        .{ .label = "CPU", .value = info.field("cpu"), .kind = .hardware },
+        .{ .label = "GPU", .value = info.field("gpu"), .kind = .hardware },
+        .{ .label = "GPU", .value = info.field("gpu2"), .kind = .hardware },
+        .{ .label = "Memory", .value = info.field("memory"), .kind = .usage },
+        .{ .label = "Swap", .value = info.field("swap"), .kind = .usage },
+        .{ .label = "Disk", .value = info.field("disk"), .kind = .storage },
+        .{ .label = "Disk", .value = info.field("disk2"), .kind = .storage },
+        .{ .label = "Disk", .value = info.field("disk3"), .kind = .storage },
+        .{ .label = "Local IP", .value = info.field("local_ip"), .kind = .network },
+        .{ .label = "Locale", .value = info.field("locale"), .kind = .system },
     };
     const row_count = @max(art.len, fields.len);
 
@@ -228,11 +344,53 @@ fn row(writer: anytype, art_color: []const u8, art: []const u8, s: Style, field:
     try writePadding(writer, ArtWidth + 2 -| displayWidth(art));
     try writer.writeAll(s.reset);
 
-    if (field) |f| {
-        try writer.print("{s}{s: <10}{s} {s}", .{ s.cyan, f.label, s.reset, f.value });
-    }
+    if (field) |f| if (f.value.len > 0) {
+        try writer.print("{s}{s: <10}{s} ", .{ s.cyan, f.label, s.reset });
+        try writeValue(writer, s, f);
+    };
 
     try writer.writeByte('\n');
+}
+
+fn writeValue(writer: anytype, s: Style, field: InfoField) !void {
+    switch (field.kind) {
+        .usage, .storage => try writeUsageValue(writer, s, field.value),
+        else => try writer.writeAll(field.value),
+    }
+}
+
+fn writeUsageValue(writer: anytype, s: Style, value: []const u8) !void {
+    const percent = percentSpan(value) orelse {
+        try writer.writeAll(value);
+        return;
+    };
+
+    try writer.writeAll(value[0..percent.start]);
+    try writer.print("{s}{s}{s}", .{ percentColor(s, percent.value), value[percent.start..percent.end], s.reset });
+    try writer.writeAll(value[percent.end..]);
+}
+
+fn percentColor(s: Style, pct: u8) []const u8 {
+    if (pct >= 85) return s.danger;
+    if (pct >= 70) return s.warn;
+    return s.ok;
+}
+
+const PercentSpan = struct {
+    start: usize,
+    end: usize,
+    value: u8,
+};
+
+fn percentSpan(value: []const u8) ?PercentSpan {
+    const close = std.mem.indexOfScalar(u8, value, '%') orelse return null;
+    if (close == 0) return null;
+
+    var start = close;
+    while (start > 0 and std.ascii.isDigit(value[start - 1])) start -= 1;
+    if (start == close) return null;
+    const parsed = std.fmt.parseInt(u8, value[start..close], 10) catch return null;
+    return .{ .start = start, .end = close + 1, .value = parsed };
 }
 
 fn writePadding(writer: anytype, count: usize) !void {
@@ -250,20 +408,12 @@ fn displayWidth(text: []const u8) usize {
     return width;
 }
 
-fn osLogo(os: []const u8) []const []const u8 {
-    if (std.ascii.eqlIgnoreCase(os, "nixos")) return NixosArt[0..];
-    return LinuxArt[0..];
-}
-
-fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
-    if (needle.len == 0) return true;
-    if (needle.len > haystack.len) return false;
-
-    for (0..haystack.len - needle.len + 1) |i| {
-        if (std.ascii.eqlIgnoreCase(haystack[i .. i + needle.len], needle)) return true;
+fn osLogo(os_id: []const u8) []const []const u8 {
+    for (DistroLogos) |logo| {
+        if (std.ascii.eqlIgnoreCase(os_id, logo.id)) return logo.art;
     }
 
-    return false;
+    return LinuxArt[0..];
 }
 
 fn wantsColor() bool {
@@ -284,11 +434,20 @@ fn fillUserHost(info: *SystemInfo) void {
 fn fillOs(info: *SystemInfo) void {
     var buf: [4096]u8 = undefined;
     const data = readFile("/etc/os-release", &buf) orelse return;
-    const pretty = osReleaseValue(data, "PRETTY_NAME") orelse osReleaseValue(data, "NAME") orelse return;
-    setDefault(&info.os, &info.os_len, pretty);
 
-    const id = osReleaseValue(data, "ID") orelse return;
-    setDefault(&info.os_id, &info.os_id_len, id);
+    if (osReleaseValue(data, "PRETTY_NAME") orelse osReleaseValue(data, "NAME")) |pretty| {
+        setDefault(&info.os, &info.os_len, pretty);
+    }
+
+    if (osReleaseValue(data, "ID")) |id| {
+        setDefault(&info.os_id, &info.os_id_len, id);
+    }
+}
+
+fn fillHost(info: *SystemInfo) void {
+    var buf: [FieldSize]u8 = undefined;
+    const product = trim(readFile("/sys/devices/virtual/dmi/id/product_name", &buf) orelse return);
+    if (product.len > 0) setDefault(&info.host, &info.host_len, product);
 }
 
 fn fillKernel(info: *SystemInfo) void {
@@ -340,10 +499,17 @@ fn fillShell(info: *SystemInfo) void {
 }
 
 fn fillCpu(info: *SystemInfo) void {
-    var buf: [16384]u8 = undefined;
+    var buf: [65536]u8 = undefined;
     const data = readFile("/proc/cpuinfo", &buf) orelse return;
     const model = cpuModel(data) orelse return;
-    setDefault(&info.cpu, &info.cpu_len, model);
+    const clean_model = cleanCpuModel(model);
+    const cores = cpuThreadCount(data);
+    const mhz = cpuMaxMhz(data);
+    const out = if (mhz) |speed|
+        std.fmt.bufPrint(&info.cpu, "{s} ({}) @ {d:.2} GHz", .{ clean_model, cores, speed / 1000.0 }) catch return
+    else
+        std.fmt.bufPrint(&info.cpu, "{s} ({})", .{ clean_model, cores }) catch return;
+    info.cpu_len = out.len;
 }
 
 fn fillGpu(info: *SystemInfo) void {
@@ -351,6 +517,7 @@ fn fillGpu(info: *SystemInfo) void {
     defer dir.close();
 
     var iter = dir.iterate();
+    var count: usize = 0;
     while (iter.next() catch null) |entry| {
         if (entry.kind != .directory and entry.kind != .sym_link) continue;
         if (!std.mem.startsWith(u8, entry.name, "card")) continue;
@@ -384,9 +551,15 @@ fn fillGpu(info: *SystemInfo) void {
 
         var model_buf: [FieldSize]u8 = undefined;
         const model = gpuModelName(vendor_id, device_id, subsystem_vendor_id, subsystem_device_id, &model_buf) orelse gpuVendorName(vendor_id);
-        const out = std.fmt.bufPrint(&info.gpu, "{s} ({s})", .{ model, driver }) catch return;
-        info.gpu_len = out.len;
-        return;
+        const class = if (std.mem.eql(u8, driver, "amdgpu") and !std.mem.eql(u8, device_id, "0x731f")) " [Integrated]" else " [Discrete]";
+        var out_buf: [FieldSize]u8 = undefined;
+        const out = std.fmt.bufPrint(&out_buf, "{s}{s}", .{ model, class }) catch return;
+        switch (count) {
+            0 => setDefault(&info.gpu, &info.gpu_len, out),
+            1 => setDefault(&info.gpu2, &info.gpu2_len, out),
+            else => break,
+        }
+        count += 1;
     }
 }
 
@@ -397,11 +570,25 @@ fn fillMemory(info: *SystemInfo) void {
     info.memory_len = formatted.len;
 }
 
+fn fillSwap(info: *SystemInfo) void {
+    var buf: [4096]u8 = undefined;
+    const data = readFile("/proc/meminfo", &buf) orelse return;
+    const total = meminfoKb(data, "SwapTotal") orelse return;
+    const free = meminfoKb(data, "SwapFree") orelse return;
+    const used = total - free;
+    const pct = if (total == 0) 0 else (used * 100) / total;
+    const used_gib: f64 = @as(f64, @floatFromInt(used)) / 1048576.0;
+    const total_gib: f64 = @as(f64, @floatFromInt(total)) / 1048576.0;
+    const out = std.fmt.bufPrint(&info.swap, "{d:.2} GiB / {d:.2} GiB ({}%)", .{ used_gib, total_gib, pct }) catch return;
+    info.swap_len = out.len;
+}
+
 fn fillDisplay(info: *SystemInfo) void {
     var dir = std.fs.openDirAbsolute("/sys/class/drm", .{ .iterate = true }) catch return;
     defer dir.close();
 
     var iter = dir.iterate();
+    var count: usize = 0;
     while (iter.next() catch null) |entry| {
         if (entry.kind != .directory and entry.kind != .sym_link) continue;
         if (std.mem.indexOfScalar(u8, entry.name, '-')) |_| {} else continue;
@@ -417,15 +604,37 @@ fn fillDisplay(info: *SystemInfo) void {
         const modes = trim(readFile(modes_path, &modes_buf) orelse continue);
         const first_line_end = std.mem.indexOfScalar(u8, modes, '\n') orelse modes.len;
         const mode = modes[0..first_line_end];
-        const out = std.fmt.bufPrint(&info.display, "{s} @ {s}", .{ mode, entry.name }) catch return;
-        info.display_len = out.len;
-        return;
+        var edid_path_buf: [256]u8 = undefined;
+        const edid_path = std.fmt.bufPrint(&edid_path_buf, "/sys/class/drm/{s}/edid", .{entry.name}) catch continue;
+        var edid_buf: [512]u8 = undefined;
+        const edid = readFile(edid_path, &edid_buf) orelse "";
+        var name_buf: [32]u8 = undefined;
+        const name = edidDisplayName(edid, &name_buf) orelse entry.name;
+        const inches = edidDiagonalInches(edid);
+        const hz = edidRefreshRate(edid);
+        var out_buf: [FieldSize]u8 = undefined;
+        const out = if (inches != null and hz != null)
+            std.fmt.bufPrint(&out_buf, "({s}): {s} in {}\", {} Hz [External]", .{ name, mode, inches.?, hz.? }) catch return
+        else
+            std.fmt.bufPrint(&out_buf, "({s}): {s} [External]", .{ name, mode }) catch return;
+        switch (count) {
+            0 => setDefault(&info.display, &info.display_len, out),
+            1 => setDefault(&info.display2, &info.display2_len, out),
+            2 => setDefault(&info.display3, &info.display3_len, out),
+            else => break,
+        }
+        count += 1;
     }
 }
 
 fn fillPackages(info: *SystemInfo) void {
-    if (countDirEntries("/run/current-system/sw/bin") orelse countDirEntries("/nix/var/nix/profiles/default/bin")) |count| {
-        const out = std.fmt.bufPrint(&info.packages, "{} system binaries", .{count}) catch return;
+    const nix_system = countDirEntries("/run/current-system/sw/bin") orelse 0;
+    const nix_user = countUserProfileBins() orelse 0;
+    const flatpak_system = countDirEntries("/var/lib/flatpak/app") orelse 0;
+    const flatpak_user = countHomeDirEntries(".local/share/flatpak/app") orelse 0;
+
+    if (nix_system + nix_user + flatpak_system + flatpak_user > 0) {
+        const out = std.fmt.bufPrint(&info.packages, "{} (nix-system), {} (nix-user), {} (flatpak-system), {} (flatpak-user)", .{ nix_system, nix_user, flatpak_system, flatpak_user }) catch return;
         info.packages_len = out.len;
         return;
     }
@@ -435,13 +644,66 @@ fn fillPackages(info: *SystemInfo) void {
     info.packages_len = out.len;
 }
 
+fn fillGtkSettings(info: *SystemInfo) void {
+    var path_buf: [512]u8 = undefined;
+    const path = homePath(&path_buf, ".config/gtk-3.0/settings.ini") orelse return;
+    var buf: [4096]u8 = undefined;
+    const data = readFile(path, &buf) orelse return;
+
+    if (iniValue(data, "gtk-theme-name")) |value| {
+        const out = std.fmt.bufPrint(&info.theme, "{s} [GTK3]", .{value}) catch return;
+        info.theme_len = out.len;
+    }
+    if (iniValue(data, "gtk-icon-theme-name")) |value| {
+        const out = std.fmt.bufPrint(&info.icons, "{s} [GTK3]", .{value}) catch return;
+        info.icons_len = out.len;
+    }
+    if (iniValue(data, "gtk-font-name")) |value| {
+        const out = std.fmt.bufPrint(&info.font, "{s} [GTK3]", .{value}) catch return;
+        info.font_len = out.len;
+    }
+    if (iniValue(data, "gtk-cursor-theme-name")) |theme| {
+        if (iniValue(data, "gtk-cursor-theme-size")) |size| {
+            const out = std.fmt.bufPrint(&info.cursor, "{s} ({s}px)", .{ theme, size }) catch return;
+            info.cursor_len = out.len;
+        } else {
+            setDefault(&info.cursor, &info.cursor_len, theme);
+        }
+    }
+}
+
 fn fillTerminal(info: *SystemInfo) void {
     var term_buf: [64]u8 = undefined;
-    var session_buf: [64]u8 = undefined;
+    if (envInto(&term_buf, "TERM_PROGRAM")) |term| {
+        setDefault(&info.terminal, &info.terminal_len, term);
+        return;
+    }
+    if (std.process.hasEnvVarConstant("ZELLIJ")) {
+        setDefault(&info.terminal, &info.terminal_len, "zellij");
+        return;
+    }
     const term = envInto(&term_buf, "TERM") orelse "tty";
-    const session = envInto(&session_buf, "XDG_SESSION_TYPE") orelse "console";
-    const out = std.fmt.bufPrint(&info.terminal, "{s} / {s}", .{ term, session }) catch return;
-    info.terminal_len = out.len;
+    setDefault(&info.terminal, &info.terminal_len, term);
+}
+
+fn fillDisks(info: *SystemInfo) void {
+    fillDiskPath("/", &info.disk, &info.disk_len);
+    fillDiskPath("/mnt/ssd2", &info.disk2, &info.disk2_len);
+    fillDiskPath("/nix", &info.disk3, &info.disk3_len);
+}
+
+fn fillLocalIp(info: *SystemInfo) void {
+    var buf: [65536]u8 = undefined;
+    const data = readFile("/proc/net/fib_trie", &buf) orelse return;
+    const ip = localIpFromFibTrie(data) orelse return;
+    const out = std.fmt.bufPrint(&info.local_ip, "{s}", .{ip}) catch return;
+    info.local_ip_len = out.len;
+}
+
+fn fillLocale(info: *SystemInfo) void {
+    var buf: [FieldSize]u8 = undefined;
+    const locale = envInto(&buf, "LC_ALL") orelse envInto(&buf, "LC_CTYPE") orelse envInto(&buf, "LANG") orelse return;
+    setDefault(&info.locale, &info.locale_len, locale);
 }
 
 fn readFile(path: []const u8, buf: []u8) ?[]const u8 {
@@ -461,6 +723,26 @@ fn countDirEntries(path: []const u8) ?usize {
         if (entry.name.len > 0 and entry.name[0] != '.') count += 1;
     }
     return count;
+}
+
+fn countUserProfileBins() ?usize {
+    var path_buf: [512]u8 = undefined;
+    if (homePath(&path_buf, ".nix-profile/bin")) |path| {
+        if (countDirEntries(path)) |count| return count;
+    }
+    return countDirEntries("/nix/var/nix/profiles/default/bin");
+}
+
+fn countHomeDirEntries(relative_path: []const u8) ?usize {
+    var path_buf: [512]u8 = undefined;
+    const path = homePath(&path_buf, relative_path) orelse return null;
+    return countDirEntries(path);
+}
+
+fn homePath(buf: []u8, relative_path: []const u8) ?[]const u8 {
+    var home_buf: [256]u8 = undefined;
+    const home = envInto(&home_buf, "HOME") orelse return null;
+    return std.fmt.bufPrint(buf, "{s}/{s}", .{ home, relative_path }) catch null;
 }
 
 fn envInto(buf: []u8, name: []const u8) ?[]const u8 {
@@ -496,6 +778,17 @@ fn ueventValue(data: []const u8, key: []const u8) ?[]const u8 {
         if (!std.mem.startsWith(u8, line, key)) continue;
         if (line.len <= key.len or line[key.len] != '=') continue;
         return trim(line[key.len + 1 ..]);
+    }
+    return null;
+}
+
+fn iniValue(data: []const u8, key: []const u8) ?[]const u8 {
+    var lines = std.mem.splitScalar(u8, data, '\n');
+    while (lines.next()) |line| {
+        const trimmed = trim(line);
+        if (!std.mem.startsWith(u8, trimmed, key)) continue;
+        if (trimmed.len <= key.len or trimmed[key.len] != '=') continue;
+        return trim(trimmed[key.len + 1 ..]);
     }
     return null;
 }
@@ -618,13 +911,48 @@ fn cpuModel(data: []const u8) ?[]const u8 {
     return null;
 }
 
+fn cleanCpuModel(model: []const u8) []const u8 {
+    const suffixes = [_][]const u8{
+        " 8-Core Processor",
+        " 6-Core Processor",
+        " 4-Core Processor",
+        " Processor",
+    };
+
+    for (suffixes) |suffix| {
+        if (std.mem.endsWith(u8, model, suffix)) return model[0 .. model.len - suffix.len];
+    }
+    return model;
+}
+
+fn cpuThreadCount(data: []const u8) usize {
+    var count: usize = 0;
+    var lines = std.mem.splitScalar(u8, data, '\n');
+    while (lines.next()) |line| {
+        if (std.mem.startsWith(u8, line, "processor")) count += 1;
+    }
+    return if (count == 0) 1 else count;
+}
+
+fn cpuMaxMhz(data: []const u8) ?f64 {
+    var max: f64 = 0;
+    var lines = std.mem.splitScalar(u8, data, '\n');
+    while (lines.next()) |line| {
+        if (!std.mem.startsWith(u8, line, "cpu MHz")) continue;
+        const idx = std.mem.indexOfScalar(u8, line, ':') orelse continue;
+        const mhz = std.fmt.parseFloat(f64, trim(line[idx + 1 ..])) catch continue;
+        if (mhz > max) max = mhz;
+    }
+    return if (max == 0) null else max;
+}
+
 fn formatMemory(data: []const u8, buf: []u8) ![]const u8 {
     const total_kb = meminfoKb(data, "MemTotal") orelse return error.MissingMemory;
     const available_kb = meminfoKb(data, "MemAvailable") orelse return error.MissingMemory;
-    const used_mib = (total_kb - available_kb) / 1024;
-    const total_mib = total_kb / 1024;
+    const used_gib: f64 = @as(f64, @floatFromInt(total_kb - available_kb)) / 1048576.0;
+    const total_gib: f64 = @as(f64, @floatFromInt(total_kb)) / 1048576.0;
     const pct = if (total_kb == 0) 0 else ((total_kb - available_kb) * 100) / total_kb;
-    return std.fmt.bufPrint(buf, "{} MiB / {} MiB ({}%)", .{ used_mib, total_mib, pct });
+    return std.fmt.bufPrint(buf, "{d:.2} GiB / {d:.2} GiB ({}%)", .{ used_gib, total_gib, pct });
 }
 
 fn meminfoKb(data: []const u8, key: []const u8) ?u64 {
@@ -675,15 +1003,124 @@ fn basename(path: []const u8) []const u8 {
     return path;
 }
 
+fn edidDisplayName(edid: []const u8, buf: []u8) ?[]const u8 {
+    if (edid.len < 128) return null;
+    var offset: usize = 54;
+    while (offset + 18 <= 126) : (offset += 18) {
+        if (edid[offset] == 0 and edid[offset + 1] == 0 and edid[offset + 2] == 0 and edid[offset + 3] == 0xfc) {
+            const raw = trim(edid[offset + 5 .. offset + 18]);
+            const n = @min(buf.len, raw.len);
+            @memcpy(buf[0..n], raw[0..n]);
+            return buf[0..n];
+        }
+    }
+    return null;
+}
+
+fn edidDiagonalInches(edid: []const u8) ?u32 {
+    if (edid.len < 23 or edid[21] == 0 or edid[22] == 0) return null;
+    const width_cm: f64 = @floatFromInt(edid[21]);
+    const height_cm: f64 = @floatFromInt(edid[22]);
+    const diagonal_cm = std.math.sqrt(width_cm * width_cm + height_cm * height_cm);
+    return @intFromFloat((diagonal_cm / 2.54) + 0.5);
+}
+
+fn edidRefreshRate(edid: []const u8) ?u32 {
+    if (edid.len < 72) return null;
+    const offset = 54;
+    const pixel_clock: u32 = (@as(u32, edid[offset + 1]) << 8 | edid[offset]) * 10000;
+    if (pixel_clock == 0) return null;
+    const hactive: u32 = @as(u32, edid[offset + 2]) | ((@as(u32, edid[offset + 4]) & 0xf0) << 4);
+    const hblank: u32 = @as(u32, edid[offset + 3]) | ((@as(u32, edid[offset + 4]) & 0x0f) << 8);
+    const vactive: u32 = @as(u32, edid[offset + 5]) | ((@as(u32, edid[offset + 7]) & 0xf0) << 4);
+    const vblank: u32 = @as(u32, edid[offset + 6]) | ((@as(u32, edid[offset + 7]) & 0x0f) << 8);
+    const total = (hactive + hblank) * (vactive + vblank);
+    if (total == 0) return null;
+    return (pixel_clock + total / 2) / total;
+}
+
+fn fillDiskPath(path: []const u8, buf: *[FieldSize]u8, len: *usize) void {
+    var path_buf: [std.fs.max_path_bytes:0]u8 = undefined;
+    if (path.len >= path_buf.len) return;
+    @memcpy(path_buf[0..path.len], path);
+    path_buf[path.len] = 0;
+
+    var stat: LinuxStatfs = undefined;
+    const rc = std.os.linux.syscall2(.statfs, @intFromPtr(&path_buf), @intFromPtr(&stat));
+    if (std.os.linux.E.init(rc) != .SUCCESS) return;
+    const block_size: u64 = @intCast(if (stat.f_frsize > 0) stat.f_frsize else stat.f_bsize);
+    const total: u64 = stat.f_blocks * block_size;
+    const available: u64 = stat.f_bavail * block_size;
+    const used = total - available;
+    const pct = if (total == 0) 0 else (used * 100) / total;
+    const out = std.fmt.bufPrint(buf, "({s}): {f} / {f} ({}%)", .{ path, formatBytes(used), formatBytes(total), pct }) catch return;
+    len.* = out.len;
+}
+
+fn formatBytes(bytes: u64) ByteFormat {
+    return .{ .bytes = bytes };
+}
+
+const ByteFormat = struct {
+    bytes: u64,
+
+    pub fn format(self: ByteFormat, writer: *std.Io.Writer) std.Io.Writer.Error!void {
+        const teb = 1024.0 * 1024.0 * 1024.0 * 1024.0;
+        const gib = 1024.0 * 1024.0 * 1024.0;
+        const value: f64 = @floatFromInt(self.bytes);
+        if (value >= teb) return writer.print("{d:.2} TiB", .{value / teb});
+        return writer.print("{d:.2} GiB", .{value / gib});
+    }
+};
+
+fn localIpFromFibTrie(data: []const u8) ?[]const u8 {
+    var candidate: ?[]const u8 = null;
+    var fallback: ?[]const u8 = null;
+    var lines = std.mem.splitScalar(u8, data, '\n');
+    while (lines.next()) |line| {
+        const trimmed = trim(line);
+        if (std.mem.startsWith(u8, trimmed, "|-- ") or std.mem.startsWith(u8, trimmed, "+-- ")) {
+            const ip = trimmed[4..];
+            if (isUsableIpv4(ip)) candidate = ip;
+            continue;
+        }
+        if (candidate != null and std.mem.indexOf(u8, trimmed, "host LOCAL") != null) {
+            if (isPreferredLanIpv4(candidate.?)) return candidate.?;
+            if (fallback == null) fallback = candidate;
+        }
+    }
+    return fallback;
+}
+
+fn isUsableIpv4(ip: []const u8) bool {
+    return std.mem.indexOfScalar(u8, ip, '.') != null and
+        !std.mem.startsWith(u8, ip, "127.") and
+        !std.mem.startsWith(u8, ip, "0.") and
+        !std.mem.startsWith(u8, ip, "224.") and
+        !std.mem.startsWith(u8, ip, "255.");
+}
+
+fn isPreferredLanIpv4(ip: []const u8) bool {
+    return std.mem.startsWith(u8, ip, "192.168.") or
+        std.mem.startsWith(u8, ip, "10.") or
+        (std.mem.startsWith(u8, ip, "172.") and ip.len > 6 and blk: {
+            var parts = std.mem.splitScalar(u8, ip, '.');
+            _ = parts.next();
+            const second = std.fmt.parseInt(u8, parts.next() orelse break :blk false, 10) catch break :blk false;
+            break :blk second >= 16 and second <= 31;
+        });
+}
+
 test "parse os-release quoted value" {
-    const data = "NAME=ArcadeOS\nPRETTY_NAME=\"ArcadeOS Neon 1.0\"\n";
+    const data = "ID=arcade\nNAME=ArcadeOS\nPRETTY_NAME=\"ArcadeOS Neon 1.0\"\n";
     try std.testing.expectEqualStrings("ArcadeOS Neon 1.0", osReleaseValue(data, "PRETTY_NAME").?);
+    try std.testing.expectEqualStrings("arcade", osReleaseValue(data, "ID").?);
 }
 
 test "format meminfo usage" {
     const data = "MemTotal:       8192000 kB\nMemAvailable:   4096000 kB\n";
     var buf: [FieldSize]u8 = undefined;
-    try std.testing.expectEqualStrings("4000 MiB / 8000 MiB (50%)", try formatMemory(data, &buf));
+    try std.testing.expectEqualStrings("3.91 GiB / 7.81 GiB (50%)", try formatMemory(data, &buf));
 }
 
 test "format uptime" {
@@ -704,5 +1141,6 @@ test "parse pci ids subsystem gpu model" {
 
 test "select nixos logo" {
     try std.testing.expectEqualStrings(NixosArt[0], osLogo("nixos")[0]);
+    try std.testing.expectEqualStrings(NixosArt[0], osLogo("NIXOS")[0]);
     try std.testing.expectEqualStrings(LinuxArt[0], osLogo("Unknown Linux")[0]);
 }

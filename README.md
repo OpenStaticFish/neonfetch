@@ -11,25 +11,30 @@ micqdf@hypr-nix
 retro terminal telemetry
 
           ▗▄▄▄       ▗▄▄▄▄    ▄▄▄▖           OS         NixOS 25.11 (Xantusia)
-          ▜███▙       ▜███▙  ▟███▛           Kernel     Linux 6.19.9-zen1
-           ▜███▙       ▜███▙▟███▛            Arch       x86_64
-            ▜███▙       ▜██████▛             Uptime     11d 18h 27m
-     ▟█████████████████▙ ▜████▛     ▟▙       Desktop    Hyprland
-    ▟███████████████████▙ ▜███▙    ▟██▙      WM         Hyprland
-           ▄▄▄▄▖           ▜███▙  ▟███▛      Shell      fish
-          ▟███▛             ▜██▛ ▟███▛       CPU        AMD Ryzen 7 7700 8-Core Processor
-         ▟███▛               ▜▛ ▟███▛        GPU        RX 5700 XT RAW II (amdgpu)
-▟███████████▛                  ▟██████████▙  Memory     16295 MiB / 31198 MiB (52%)
-▜██████████▛                  ▟███████████▛  Display    2560x1080 @ card1-HDMI-A-1
-      ▟███▛ ▟▙               ▟███▛           Packages   1287 system binaries
-     ▟███▛ ▟██▙             ▟███▛            Terminal   xterm-256color / wayland
-    ▟███▛  ▜███▙           ▝▀▀▀▀
-    ▜██▛    ▜███▙ ▜██████████████████▛
-     ▜▛     ▟████▙ ▜████████████████▛
-           ▟██████▙       ▜███▙
-          ▟███▛▜███▙       ▜███▙
-         ▟███▛  ▜███▙       ▜███▙
-         ▝▀▀▀    ▀▀▀▀▘       ▀▀▀▘
+          ▜███▙       ▜███▙  ▟███▛           Host       B650M GAMING PLUS WIFI
+           ▜███▙       ▜███▙▟███▛            Kernel     Linux 6.19.9-zen1
+            ▜███▙       ▜██████▛             Uptime     20h 50m
+     ▟█████████████████▙ ▜████▛     ▟▙       Packages   1287 (nix-system), 451 (nix-user), 4 (flatpak-system), 2 (flatpak-user)
+    ▟███████████████████▙ ▜███▙    ▟██▙      Shell      fish
+           ▄▄▄▄▖           ▜███▙  ▟███▛      Display    (LG ULTRAWIDE): 2560x1080 in 29", 60 Hz [External]
+          ▟███▛             ▜██▛ ▟███▛       Display    (27E1QA): 2560x1440 in 27", 60 Hz [External]
+         ▟███▛               ▜▛ ▟███▛        Display    (VG271U M3): 2560x1440 in 27", 60 Hz [External]
+▟███████████▛                  ▟██████████▙  WM         Hyprland
+▜██████████▛                  ▟███████████▛  Theme      Breeze-Dark [GTK3]
+      ▟███▛ ▟▙               ▟███▛           Icons      breeze-dark [GTK3]
+     ▟███▛ ▟██▙             ▟███▛            Font       Noto Sans 10 [GTK3]
+    ▟███▛  ▜███▙           ▝▀▀▀▀             Cursor     Bibata-Modern-Ice (24px)
+    ▜██▛    ▜███▙ ▜██████████████████▛       Terminal   tty
+     ▜▛     ▟████▙ ▜████████████████▛        CPU        AMD Ryzen 7 7700 (16) @ 5.26 GHz
+           ▟██████▙       ▜███▙              GPU        RX 5700 XT RAW II [Discrete]
+          ▟███▛▜███▙       ▜███▙             GPU        Raphael [Integrated]
+         ▟███▛  ▜███▙       ▜███▙            Memory     21.86 GiB / 30.47 GiB (71%)
+         ▝▀▀▀    ▀▀▀▀▘       ▀▀▀▘            Swap       1.73 GiB / 31.23 GiB (5%)
+                                             Disk       (/): 0.00 GiB / 15.23 GiB (0%)
+                                             Disk       (/mnt/ssd2): 319.58 GiB / 931.51 GiB (34%)
+                                             Disk       (/nix): 1.25 TiB / 1.79 TiB (69%)
+                                             Local IP   192.168.0.20
+                                             Locale     en_GB.UTF-8
 ```
 
 ## Features
@@ -37,7 +42,7 @@ retro terminal telemetry
 - Native Zig binary with no runtime dependencies.
 - Fast data collection with no shell-outs.
 - Synthwave ANSI color output with `NO_COLOR` support.
-- Linux system details: OS, kernel, arch, uptime, desktop, WM, shell, CPU, GPU, memory, display, packages, and terminal.
+- Linux system details: OS, host, kernel, uptime, packages, shell, displays, WM, GTK theme, icons, font, cursor, terminal, CPU, GPUs, memory, swap, disks, local IP, and locale.
 - GPU model lookup from PCI IDs when available, with targeted fallbacks.
 - Nix flake package, app, and dev shell.
 - GitHub Actions CI and release binaries.
