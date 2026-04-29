@@ -2,21 +2,44 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const FieldSize = 160;
-const ArtWidth = 30;
+const ArtWidth = 43;
 
-const Art = [_][]const u8{
-    "        .            .        ",
-    "      .:;:.        .:;:.      ",
-    "    .:;;;;:.    .:;;;;:.    ",
-    "  .:;;;;;;;;:..:;;;;;;;;:.  ",
-    " .:;;;;;;'        ';;;;;;:. ",
-    " :;;;;;'   .-==-.   ';;;;;: ",
-    " :;;;;   .'  __  '.   ;;;;: ",
-    " ';;;;.  |  (__)  |  .;;;;' ",
-    "  ';;;;:. '._/ _.' .:;;;;'  ",
-    "    ';;;;:..____..:;;;;'    ",
-    "      ';;;;;;;;;;;;;;'      ",
-    "        '::;;;;;;::'        ",
+const NixosArt = [_][]const u8{
+    "          ▗▄▄▄       ▗▄▄▄▄    ▄▄▄▖",
+    "          ▜███▙       ▜███▙  ▟███▛",
+    "           ▜███▙       ▜███▙▟███▛",
+    "            ▜███▙       ▜██████▛",
+    "     ▟█████████████████▙ ▜████▛     ▟▙",
+    "    ▟███████████████████▙ ▜███▙    ▟██▙",
+    "           ▄▄▄▄▖           ▜███▙  ▟███▛",
+    "          ▟███▛             ▜██▛ ▟███▛",
+    "         ▟███▛               ▜▛ ▟███▛",
+    "▟███████████▛                  ▟██████████▙",
+    "▜██████████▛                  ▟███████████▛",
+    "      ▟███▛ ▟▙               ▟███▛",
+    "     ▟███▛ ▟██▙             ▟███▛",
+    "    ▟███▛  ▜███▙           ▝▀▀▀▀",
+    "    ▜██▛    ▜███▙ ▜██████████████████▛",
+    "     ▜▛     ▟████▙ ▜████████████████▛",
+    "           ▟██████▙       ▜███▙",
+    "          ▟███▛▜███▙       ▜███▙",
+    "         ▟███▛  ▜███▙       ▜███▙",
+    "         ▝▀▀▀    ▀▀▀▀▘       ▀▀▀▘",
+};
+
+const LinuxArt = [_][]const u8{
+    "                            ",
+    "           .--.             ",
+    "          |o_o |            ",
+    "          |:_/ |            ",
+    "         //   \\ \\           ",
+    "        (|     | )          ",
+    "       /'\\_   _/`\\         ",
+    "       \\___)=(___/         ",
+    "                            ",
+    "                            ",
+    "                            ",
+    "                            ",
 };
 
 const Style = struct {
@@ -27,18 +50,25 @@ const Style = struct {
     purple: []const u8,
     cyan: []const u8,
     blue: []const u8,
+    green: []const u8,
     orange: []const u8,
+};
+
+const InfoField = struct {
+    label: []const u8,
+    value: []const u8,
 };
 
 const neon = Style{
     .reset = "\x1b[0m",
     .bold = "\x1b[1m",
     .dim = "\x1b[2m",
-    .pink = "\x1b[38;2;255;45;149m",
-    .purple = "\x1b[38;2;157;78;221m",
-    .cyan = "\x1b[38;2;0;245;255m",
-    .blue = "\x1b[38;2;44;113;255m",
-    .orange = "\x1b[38;2;255;176;59m",
+    .pink = "\x1b[38;2;247;38;133m",
+    .purple = "\x1b[38;2;58;13;163m",
+    .cyan = "\x1b[38;2;76;201;239m",
+    .blue = "\x1b[38;2;60;255;130m",
+    .green = "\x1b[38;2;60;255;130m",
+    .orange = "\x1b[38;2;249;199;74m",
 };
 
 const plain = Style{
@@ -49,6 +79,7 @@ const plain = Style{
     .purple = "",
     .cyan = "",
     .blue = "",
+    .green = "",
     .orange = "",
 };
 
@@ -150,34 +181,82 @@ pub fn collectSystemInfo() !SystemInfo {
 
 fn render(writer: anytype, info: *const SystemInfo, use_color: bool) !void {
     const s = if (use_color) neon else plain;
-    const colors = [_][]const u8{ s.pink, s.purple, s.blue, s.cyan, s.blue, s.purple };
+    const colors = [_][]const u8{ s.blue, s.purple, s.pink, s.cyan, s.orange };
+    const art = osLogo(info.field("os"));
+    const fields = [_]InfoField{
+        .{ .label = "OS", .value = info.field("os") },
+        .{ .label = "Kernel", .value = info.field("kernel") },
+        .{ .label = "Arch", .value = info.field("arch") },
+        .{ .label = "Uptime", .value = info.field("uptime") },
+        .{ .label = "Desktop", .value = info.field("desktop") },
+        .{ .label = "WM", .value = info.field("wm") },
+        .{ .label = "Shell", .value = info.field("shell") },
+        .{ .label = "CPU", .value = info.field("cpu") },
+        .{ .label = "GPU", .value = info.field("gpu") },
+        .{ .label = "Memory", .value = info.field("memory") },
+        .{ .label = "Display", .value = info.field("display") },
+        .{ .label = "Packages", .value = info.field("packages") },
+        .{ .label = "Terminal", .value = info.field("terminal") },
+    };
+    const row_count = @max(art.len, fields.len);
 
     try writer.print("\n{s}{s}{s}\n", .{ s.bold, s.pink, info.userHost() });
     try writer.print("{s}{s}\n\n", .{ s.dim, "retro terminal telemetry" });
 
-    try row(writer, colors[0], Art[0], s, "OS", info.field("os"));
-    try row(writer, colors[1], Art[1], s, "Kernel", info.field("kernel"));
-    try row(writer, colors[2], Art[2], s, "Arch", info.field("arch"));
-    try row(writer, colors[3], Art[3], s, "Uptime", info.field("uptime"));
-    try row(writer, colors[4], Art[4], s, "Desktop", info.field("desktop"));
-    try row(writer, colors[5], Art[5], s, "WM", info.field("wm"));
-    try row(writer, colors[0], Art[6], s, "Shell", info.field("shell"));
-    try row(writer, colors[1], Art[7], s, "CPU", info.field("cpu"));
-    try row(writer, colors[2], Art[8], s, "GPU", info.field("gpu"));
-    try row(writer, colors[3], Art[9], s, "Memory", info.field("memory"));
-    try row(writer, colors[4], Art[10], s, "Display", info.field("display"));
-    try row(writer, colors[5], Art[11], s, "Packages", info.field("packages"));
-    try row(writer, colors[0], "", s, "Terminal", info.field("terminal"));
+    for (0..row_count) |i| {
+        const art_line = if (i < art.len) art[i] else "";
+        const field = if (i < fields.len) fields[i] else null;
+        try row(writer, colors[i % colors.len], art_line, s, field);
+    }
 
     if (use_color) {
-        try writer.print("\n{s}palette {s}██{s}██{s}██{s}██{s}██{s}\n", .{ s.dim, s.pink, s.purple, s.blue, s.cyan, s.orange, s.reset });
+        try writer.print("\n{s}palette {s}██{s}██{s}██{s}██{s}██{s}\n", .{ s.dim, s.blue, s.purple, s.pink, s.cyan, s.orange, s.reset });
     } else {
-        try writer.writeAll("\npalette [pink] [purple] [blue] [cyan] [orange]\n");
+        try writer.writeAll("\npalette [green] [violet] [pink] [cyan] [yellow]\n");
     }
 }
 
-fn row(writer: anytype, art_color: []const u8, art: []const u8, s: Style, label: []const u8, value: []const u8) !void {
-    try writer.print("{s}{s: <30}{s}  {s}{s: <10}{s} {s}\n", .{ art_color, art, s.reset, s.cyan, label, s.reset, value });
+fn row(writer: anytype, art_color: []const u8, art: []const u8, s: Style, field: ?InfoField) !void {
+    try writer.print("{s}{s}", .{ art_color, art });
+    try writePadding(writer, ArtWidth + 2 -| displayWidth(art));
+    try writer.writeAll(s.reset);
+
+    if (field) |f| {
+        try writer.print("{s}{s: <10}{s} {s}", .{ s.cyan, f.label, s.reset, f.value });
+    }
+
+    try writer.writeByte('\n');
+}
+
+fn writePadding(writer: anytype, count: usize) !void {
+    for (0..count) |_| try writer.writeByte(' ');
+}
+
+fn displayWidth(text: []const u8) usize {
+    var width: usize = 0;
+    var i: usize = 0;
+    while (i < text.len) {
+        const size = std.unicode.utf8ByteSequenceLength(text[i]) catch 1;
+        i += @min(size, text.len - i);
+        width += 1;
+    }
+    return width;
+}
+
+fn osLogo(os: []const u8) []const []const u8 {
+    if (containsIgnoreCase(os, "nixos")) return NixosArt[0..];
+    return LinuxArt[0..];
+}
+
+fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
+    if (needle.len == 0) return true;
+    if (needle.len > haystack.len) return false;
+
+    for (0..haystack.len - needle.len + 1) |i| {
+        if (std.ascii.eqlIgnoreCase(haystack[i .. i + needle.len], needle)) return true;
+    }
+
+    return false;
 }
 
 fn wantsColor() bool {
@@ -611,4 +690,9 @@ test "parse pci ids subsystem gpu model" {
     const data = "1002  Advanced Micro Devices, Inc. [AMD/ATI]\n\t731f  Navi 10 [Radeon RX 5600 OEM/5600 XT / 5700/5700 XT]\n\t\t1682 5701  RX 5700 XT RAW II\n10de  NVIDIA Corporation\n";
     var buf: [FieldSize]u8 = undefined;
     try std.testing.expectEqualStrings("RX 5700 XT RAW II", parsePciIds(data, normalizePciId("0x1002"), normalizePciId("0x731f"), normalizePciId("0x1682"), normalizePciId("0x5701"), &buf).?);
+}
+
+test "select nixos logo" {
+    try std.testing.expectEqualStrings(NixosArt[0], osLogo("NixOS 25.11")[0]);
+    try std.testing.expectEqualStrings(LinuxArt[0], osLogo("Unknown Linux")[0]);
 }
