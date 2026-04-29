@@ -63,12 +63,12 @@ const neon = Style{
     .reset = "\x1b[0m",
     .bold = "\x1b[1m",
     .dim = "\x1b[2m",
-    .pink = "\x1b[38;2;247;38;133m",
-    .purple = "\x1b[38;2;58;13;163m",
-    .cyan = "\x1b[38;2;76;201;239m",
-    .blue = "\x1b[38;2;60;255;130m",
-    .green = "\x1b[38;2;60;255;130m",
-    .orange = "\x1b[38;2;249;199;74m",
+    .pink = "\x1b[38;2;126;200;227m",
+    .purple = "\x1b[38;2;90;150;190m",
+    .cyan = "\x1b[38;2;136;220;205m",
+    .blue = "\x1b[38;2;74;144;226m",
+    .green = "\x1b[38;2;126;200;227m",
+    .orange = "\x1b[38;2;170;190;205m",
 };
 
 const plain = Style{
@@ -181,7 +181,7 @@ pub fn collectSystemInfo() !SystemInfo {
 
 fn render(writer: anytype, info: *const SystemInfo, use_color: bool) !void {
     const s = if (use_color) neon else plain;
-    const colors = [_][]const u8{ s.blue, s.purple, s.pink, s.cyan, s.orange };
+    const colors = [_][]const u8{ s.pink, s.purple, s.blue, s.cyan, s.blue, s.purple };
     const art = osLogo(info.field("os"));
     const fields = [_]InfoField{
         .{ .label = "OS", .value = info.field("os") },
@@ -210,9 +210,9 @@ fn render(writer: anytype, info: *const SystemInfo, use_color: bool) !void {
     }
 
     if (use_color) {
-        try writer.print("\n{s}palette {s}██{s}██{s}██{s}██{s}██{s}\n", .{ s.dim, s.blue, s.purple, s.pink, s.cyan, s.orange, s.reset });
+        try writer.print("\n{s}palette {s}██{s}██{s}██{s}██{s}██{s}\n", .{ s.dim, s.pink, s.purple, s.blue, s.cyan, s.orange, s.reset });
     } else {
-        try writer.writeAll("\npalette [green] [violet] [pink] [cyan] [yellow]\n");
+        try writer.writeAll("\npalette [ice] [steel] [blue] [teal] [slate]\n");
     }
 }
 
