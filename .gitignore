@@ -1,0 +1,7 @@
+.zig-cache/
+zig-out/
+result
+result-*
+dist/
+*.tar.gz
+*.tar.gz.sha256

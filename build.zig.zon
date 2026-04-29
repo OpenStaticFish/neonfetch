@@ -1,0 +1,16 @@
+.{
+    .name = .neonfetch,
+    .version = "0.0.1",
+    .fingerprint = 0xe168263fcd80a090,
+    .minimum_zig_version = "0.15.2",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "flake.nix",
+        "nix",
+        "README.md",
+        "LICENSE",
+        "src",
+    },
+}
