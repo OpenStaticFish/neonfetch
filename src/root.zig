@@ -88,6 +88,8 @@ pub const SystemInfo = struct {
     user_host_len: usize = 0,
     os: [FieldSize]u8 = undefined,
     os_len: usize = 0,
+    os_id: [FieldSize]u8 = undefined,
+    os_id_len: usize = 0,
     kernel: [FieldSize]u8 = undefined,
     kernel_len: usize = 0,
     arch: [FieldSize]u8 = undefined,
@@ -115,6 +117,10 @@ pub const SystemInfo = struct {
 
     fn userHost(self: *const SystemInfo) []const u8 {
         return self.user_host[0..self.user_host_len];
+    }
+
+    fn osId(self: *const SystemInfo) []const u8 {
+        return self.os_id[0..self.os_id_len];
     }
 
     fn field(self: *const SystemInfo, comptime name: []const u8) []const u8 {
@@ -150,6 +156,7 @@ pub fn run() !void {
 pub fn collectSystemInfo() !SystemInfo {
     var info = SystemInfo{};
     setDefault(&info.os, &info.os_len, "Unknown Linux");
+    setDefault(&info.os_id, &info.os_id_len, "linux");
     setDefault(&info.kernel, &info.kernel_len, "Unknown");
     setDefault(&info.arch, &info.arch_len, @tagName(builtin.cpu.arch));
     setDefault(&info.uptime, &info.uptime_len, "Unknown");
@@ -182,7 +189,7 @@ pub fn collectSystemInfo() !SystemInfo {
 fn render(writer: anytype, info: *const SystemInfo, use_color: bool) !void {
     const s = if (use_color) neon else plain;
     const colors = [_][]const u8{ s.pink, s.purple, s.blue, s.cyan, s.blue, s.purple };
-    const art = osLogo(info.field("os"));
+    const art = osLogo(info.osId());
     const fields = [_]InfoField{
         .{ .label = "OS", .value = info.field("os") },
         .{ .label = "Kernel", .value = info.field("kernel") },
@@ -244,7 +251,7 @@ fn displayWidth(text: []const u8) usize {
 }
 
 fn osLogo(os: []const u8) []const []const u8 {
-    if (containsIgnoreCase(os, "nixos")) return NixosArt[0..];
+    if (std.ascii.eqlIgnoreCase(os, "nixos")) return NixosArt[0..];
     return LinuxArt[0..];
 }
 
@@ -279,6 +286,9 @@ fn fillOs(info: *SystemInfo) void {
     const data = readFile("/etc/os-release", &buf) orelse return;
     const pretty = osReleaseValue(data, "PRETTY_NAME") orelse osReleaseValue(data, "NAME") orelse return;
     setDefault(&info.os, &info.os_len, pretty);
+
+    const id = osReleaseValue(data, "ID") orelse return;
+    setDefault(&info.os_id, &info.os_id_len, id);
 }
 
 fn fillKernel(info: *SystemInfo) void {
@@ -693,6 +703,6 @@ test "parse pci ids subsystem gpu model" {
 }
 
 test "select nixos logo" {
-    try std.testing.expectEqualStrings(NixosArt[0], osLogo("NixOS 25.11")[0]);
+    try std.testing.expectEqualStrings(NixosArt[0], osLogo("nixos")[0]);
     try std.testing.expectEqualStrings(LinuxArt[0], osLogo("Unknown Linux")[0]);
 }
