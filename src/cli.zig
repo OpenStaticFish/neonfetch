@@ -7,6 +7,7 @@ const FieldId = types.FieldId;
 const FieldKind = types.FieldKind;
 const Filter = types.Filter;
 const MaxFilters = types.MaxFilters;
+const OutputFormat = types.OutputFormat;
 pub const Options = types.Options;
 
 pub fn parseOptions() !Options {
@@ -59,6 +60,14 @@ pub fn parseOptions() !Options {
             options.color = false;
         } else if (std.mem.eql(u8, arg, "--color")) {
             options.color = true;
+        } else if (std.mem.eql(u8, arg, "--raw")) {
+            options.format = .raw;
+        } else if (std.mem.eql(u8, arg, "--format")) {
+            i += 1;
+            if (i >= args.len) failArgument("missing value for --format", .{});
+            options.format = parseFormat(args[i]);
+        } else if (std.mem.startsWith(u8, arg, "--format=")) {
+            options.format = parseFormat(arg["--format=".len..]);
         } else if (std.mem.eql(u8, arg, "--only")) {
             i += 1;
             if (i >= args.len) failArgument("missing value for --only", .{});
@@ -127,6 +136,14 @@ pub fn writeCategories(writer: anytype) !void {
     );
 }
 
+fn parseFormat(value: []const u8) OutputFormat {
+    if (std.mem.eql(u8, value, "pretty")) return .pretty;
+    if (std.mem.eql(u8, value, "raw")) return .raw;
+    if (std.mem.eql(u8, value, "json")) return .json;
+    if (std.mem.eql(u8, value, "csv")) return .csv;
+    failArgument("unknown format: {s} (pretty, raw, json, csv)", .{value});
+}
+
 pub fn writeHelp(writer: anytype) !void {
     try writer.writeAll(
         \\Usage: neonfetch [command] [options]
@@ -145,6 +162,8 @@ pub fn writeHelp(writer: anytype) !void {
         \\      --no-palette           Hide the color palette footer
         \\      --plain, --no-color    Disable ANSI styling
         \\      --color                Force ANSI styling
+        \\      --raw                  Print only field values (no logo, header, palette)
+        \\      --format <fmt>         Output format: pretty, raw, json, csv
         \\      --only <list>          Show only fields/categories in a comma list
         \\      --hide <list>          Hide fields/categories in a comma list
         \\      --list-fields          List filterable fields
@@ -163,6 +182,9 @@ pub fn writeHelp(writer: anytype) !void {
         \\  neonfetch fields
         \\  neonfetch --no-logo --only cpu,gpu,memory,disk
         \\  neonfetch --hide packages,local_ip --no-palette
+        \\  neonfetch --raw --only cpu,gpu
+        \\  neonfetch --format json
+        \\  neonfetch --format csv --only os,cpu,memory
         \\
     );
 }

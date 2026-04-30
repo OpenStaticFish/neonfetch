@@ -3,10 +3,12 @@ const types = @import("types.zig");
 const util = @import("util.zig");
 
 const ArtWidth = types.ArtWidth;
+const FieldId = types.FieldId;
 const FieldKind = types.FieldKind;
 const Filter = types.Filter;
 const InfoField = types.InfoField;
 const Options = types.Options;
+const OutputFormat = types.OutputFormat;
 const Style = types.Style;
 const SystemInfo = types.SystemInfo;
 
@@ -86,6 +88,52 @@ const plain = Style{
 };
 
 pub fn render(writer: anytype, info: *const SystemInfo, options: Options, use_color: bool) !void {
+    switch (options.format) {
+        .pretty => try renderPretty(writer, info, options, use_color),
+        .raw => try renderRaw(writer, info, options),
+        .json => try renderJson(writer, info, options),
+        .csv => try renderCsv(writer, info, options),
+    }
+}
+
+fn collectVisible(info: *const SystemInfo, options: Options, out: []InfoField) usize {
+    const fields = [_]InfoField{
+        .{ .id = .os, .label = "OS", .value = info.field("os"), .kind = .identity },
+        .{ .id = .host, .label = "Host", .value = info.field("host"), .kind = .identity },
+        .{ .id = .kernel, .label = "Kernel", .value = info.field("kernel"), .kind = .system },
+        .{ .id = .uptime, .label = "Uptime", .value = info.field("uptime"), .kind = .system },
+        .{ .id = .packages, .label = "Packages", .value = info.field("packages"), .kind = .package },
+        .{ .id = .shell, .label = "Shell", .value = info.field("shell"), .kind = .system },
+        .{ .id = .display, .label = "Display", .value = info.field("display"), .kind = .hardware },
+        .{ .id = .display, .label = "Display", .value = info.field("display2"), .kind = .hardware },
+        .{ .id = .display, .label = "Display", .value = info.field("display3"), .kind = .hardware },
+        .{ .id = .wm, .label = "WM", .value = info.field("wm"), .kind = .desktop },
+        .{ .id = .theme, .label = "Theme", .value = info.field("theme"), .kind = .desktop },
+        .{ .id = .icons, .label = "Icons", .value = info.field("icons"), .kind = .desktop },
+        .{ .id = .font, .label = "Font", .value = info.field("font"), .kind = .desktop },
+        .{ .id = .cursor, .label = "Cursor", .value = info.field("cursor"), .kind = .desktop },
+        .{ .id = .terminal, .label = "Terminal", .value = info.field("terminal"), .kind = .system },
+        .{ .id = .cpu, .label = "CPU", .value = info.field("cpu"), .kind = .hardware },
+        .{ .id = .gpu, .label = "GPU", .value = info.field("gpu"), .kind = .hardware },
+        .{ .id = .gpu, .label = "GPU", .value = info.field("gpu2"), .kind = .hardware },
+        .{ .id = .memory, .label = "Memory", .value = info.field("memory"), .kind = .usage },
+        .{ .id = .swap, .label = "Swap", .value = info.field("swap"), .kind = .usage },
+        .{ .id = .disk, .label = "Disk", .value = info.field("disk"), .kind = .storage },
+        .{ .id = .disk, .label = "Disk", .value = info.field("disk2"), .kind = .storage },
+        .{ .id = .disk, .label = "Disk", .value = info.field("disk3"), .kind = .storage },
+        .{ .id = .local_ip, .label = "Local IP", .value = info.field("local_ip"), .kind = .network },
+        .{ .id = .locale, .label = "Locale", .value = info.field("locale"), .kind = .system },
+    };
+    var count: usize = 0;
+    for (fields) |field| {
+        if (!shouldShowField(field, options)) continue;
+        out[count] = field;
+        count += 1;
+    }
+    return count;
+}
+
+fn renderPretty(writer: anytype, info: *const SystemInfo, options: Options, use_color: bool) !void {
     const s = if (use_color) neon else plain;
     const colors = [_][]const u8{ s.pink, s.purple, s.blue, s.cyan, s.blue, s.purple };
     const art = osLogo(info.osId());
@@ -147,6 +195,84 @@ pub fn render(writer: anytype, info: *const SystemInfo, options: Options, use_co
             try writer.writeAll("\npalette [ice] [steel] [blue] [teal] [slate]\n");
         }
     }
+}
+
+fn renderRaw(writer: anytype, info: *const SystemInfo, options: Options) !void {
+    var visible: [25]InfoField = undefined;
+    const count = collectVisible(info, options, &visible);
+    for (visible[0..count]) |field| {
+        try writer.print("{s}  {s}\n", .{ field.label, field.value });
+    }
+}
+
+fn renderJson(writer: anytype, info: *const SystemInfo, options: Options) !void {
+    var visible: [25]InfoField = undefined;
+    const count = collectVisible(info, options, &visible);
+    try writer.writeAll("{\n");
+    var seen = std.EnumMap(FieldId, usize){};
+    for (visible[0..count], 0..) |field, i| {
+        const idx = seen.get(field.id) orelse 0;
+        seen.put(field.id, idx + 1);
+        const total = countFieldId(visible[0..count], field.id);
+        if (total > 1) {
+            try writer.print("  \"{s}_{}\": ", .{ @tagName(field.id), idx + 1 });
+        } else {
+            try writer.print("  \"{s}\": ", .{@tagName(field.id)});
+        }
+        try writeJsonString(writer, field.value);
+        if (i + 1 < count) try writer.writeAll(",");
+        try writer.writeByte('\n');
+    }
+    try writer.writeAll("}\n");
+}
+
+fn countFieldId(fields: []const InfoField, id: FieldId) usize {
+    var n: usize = 0;
+    for (fields) |f| {
+        if (f.id == id) n += 1;
+    }
+    return n;
+}
+
+fn writeJsonString(writer: anytype, value: []const u8) !void {
+    try writer.writeByte('"');
+    for (value) |char| {
+        switch (char) {
+            '"' => try writer.writeAll("\\\""),
+            '\\' => try writer.writeAll("\\\\"),
+            '\n' => try writer.writeAll("\\n"),
+            '\r' => try writer.writeAll("\\r"),
+            '\t' => try writer.writeAll("\\t"),
+            else => try writer.writeByte(char),
+        }
+    }
+    try writer.writeByte('"');
+}
+
+fn renderCsv(writer: anytype, info: *const SystemInfo, options: Options) !void {
+    var visible: [25]InfoField = undefined;
+    const count = collectVisible(info, options, &visible);
+    try writer.writeAll("field,value\n");
+    for (visible[0..count]) |field| {
+        try writeCsvValue(writer, field.label);
+        try writer.writeByte(',');
+        try writeCsvValue(writer, field.value);
+        try writer.writeByte('\n');
+    }
+}
+
+fn writeCsvValue(writer: anytype, value: []const u8) !void {
+    const needs_quote = std.mem.indexOfAny(u8, value, ",\"\n") != null;
+    if (!needs_quote) {
+        try writer.writeAll(value);
+        return;
+    }
+    try writer.writeByte('"');
+    for (value) |char| {
+        if (char == '"') try writer.writeByte('"');
+        try writer.writeByte(char);
+    }
+    try writer.writeByte('"');
 }
 
 fn shouldShowField(field: InfoField, options: Options) bool {

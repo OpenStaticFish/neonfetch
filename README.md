@@ -153,6 +153,9 @@ neonfetch fields
 neonfetch categories
 neonfetch --no-logo --only cpu,gpu,memory,disk
 neonfetch --hide packages,local_ip --no-palette
+neonfetch --raw --only cpu
+neonfetch --format json
+neonfetch --format csv --only os,cpu,memory
 ```
 
 - `help` or `--help` shows usage, commands, filters, and examples.
@@ -164,6 +167,8 @@ neonfetch --hide packages,local_ip --no-palette
 - `--no-palette` hides the color palette footer.
 - `--plain` or `--no-color` disables ANSI styling.
 - `--color` forces ANSI styling.
+- `--raw` prints only field values with no logo, header, or palette.
+- `--format <fmt>` sets output format: `pretty` (default), `raw`, `json`, or `csv`.
 - `--only <list>` shows only selected fields or categories.
 - `--hide <list>` hides selected fields or categories.
 

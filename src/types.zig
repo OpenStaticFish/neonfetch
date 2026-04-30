@@ -64,6 +64,13 @@ pub const Filter = union(enum) {
     category: FieldKind,
 };
 
+pub const OutputFormat = enum {
+    pretty,
+    raw,
+    json,
+    csv,
+};
+
 pub const CliAction = enum {
     render,
     help,
@@ -74,6 +81,7 @@ pub const CliAction = enum {
 
 pub const Options = struct {
     action: CliAction = .render,
+    format: OutputFormat = .pretty,
     show_logo: bool = true,
     show_header: bool = true,
     show_palette: bool = true,
