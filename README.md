@@ -144,6 +144,31 @@ nix build
 - `NO_COLOR=1` disables ANSI styling.
 - `CLICOLOR_FORCE=1` forces color output.
 
+## CLI Options
+
+```sh
+neonfetch --help
+neonfetch --version
+neonfetch fields
+neonfetch categories
+neonfetch --no-logo --only cpu,gpu,memory,disk
+neonfetch --hide packages,local_ip --no-palette
+```
+
+- `help` or `--help` shows usage, commands, filters, and examples.
+- `version` or `--version` prints the release version.
+- `fields` or `--list-fields` lists filterable fields.
+- `categories` or `--list-categories` lists filterable categories.
+- `--no-logo` hides the distro logo.
+- `--no-header` hides the `user@host` header.
+- `--no-palette` hides the color palette footer.
+- `--plain` or `--no-color` disables ANSI styling.
+- `--color` forces ANSI styling.
+- `--only <list>` shows only selected fields or categories.
+- `--hide <list>` hides selected fields or categories.
+
+Filter lists are comma-separated. Supported fields are `os`, `host`, `kernel`, `uptime`, `packages`, `shell`, `display`, `wm`, `theme`, `icons`, `font`, `cursor`, `terminal`, `cpu`, `gpu`, `memory`, `swap`, `disk`, `local_ip`, and `locale`. Supported categories are `identity`, `system`, `desktop`, `hardware`, `package`, `usage`, `storage`, and `network`. Names are case-insensitive; hyphens and spaces are treated like underscores. Aliases include `ip`, `displays`, `gpus`, and `disks`.
+
 ## License
 
 MIT

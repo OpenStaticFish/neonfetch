@@ -1,13 +1,18 @@
 const std = @import("std");
+const manifest = @import("build.zig.zon");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const build_options = b.addOptions();
+    build_options.addOption([]const u8, "version", manifest.version);
+
     const mod = b.addModule("neonfetch", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
     });
+    mod.addOptions("build_options", build_options);
 
     const exe = b.addExecutable(.{
         .name = "neonfetch",
