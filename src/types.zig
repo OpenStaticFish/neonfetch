@@ -79,9 +79,15 @@ pub const CliAction = enum {
     categories,
 };
 
+pub const Preset = enum {
+    default,
+    character,
+};
+
 pub const Options = struct {
     action: CliAction = .render,
     format: OutputFormat = .pretty,
+    preset: Preset = .default,
     show_logo: bool = true,
     show_header: bool = true,
     show_palette: bool = true,
