@@ -1,4 +1,5 @@
 const std = @import("std");
+const art = @import("art.zig");
 const types = @import("types.zig");
 const util = @import("util.zig");
 
@@ -135,8 +136,8 @@ fn collectVisible(info: *const SystemInfo, options: Options, out: []InfoField) u
 
 fn renderPretty(writer: anytype, info: *const SystemInfo, options: Options, use_color: bool) !void {
     const s = if (use_color) neon else plain;
-    const colors = [_][]const u8{ s.pink, s.purple, s.blue, s.cyan, s.blue, s.purple };
-    const art = osLogo(info.osId());
+    const logo = osLogo(info.osId());
+    const art_height = if (options.preset == .character) art.height else logo.len;
     const fields = [_]InfoField{
         .{ .id = .os, .label = "OS", .value = info.field("os"), .kind = .identity },
         .{ .id = .host, .label = "Host", .value = info.field("host"), .kind = .identity },
@@ -173,19 +174,18 @@ fn renderPretty(writer: anytype, info: *const SystemInfo, options: Options, use_
         visible_field_count += 1;
     }
 
-    const row_count = if (options.show_logo) @max(art.len, visible_field_count) else visible_field_count;
+    const row_count = if (options.show_logo) @max(art_height, visible_field_count) else visible_field_count;
 
     if (options.show_header) {
         try writer.print("\n{s}{s}{s}\n", .{ s.bold, s.pink, info.userHost() });
-        try writer.print("{s}{s}\n\n", .{ s.dim, "retro terminal telemetry" });
+        try writer.print("{s}{s}{s}\n\n", .{ s.dim, "retro terminal telemetry", s.reset });
     } else if (options.show_logo) {
         try writer.writeByte('\n');
     }
 
     for (0..row_count) |i| {
-        const art_line = if (options.show_logo and i < art.len) art[i] else "";
         const field = if (i < visible_field_count) visible_fields[i] else null;
-        try row(writer, colors[i % colors.len], art_line, s, field, options.show_logo);
+        try row(writer, i, s, field, options, logo, use_color);
     }
 
     if (options.show_palette) {
@@ -302,10 +302,24 @@ fn filterMatchesField(filter: Filter, field: InfoField) bool {
     };
 }
 
-fn row(writer: anytype, art_color: []const u8, art: []const u8, s: Style, field: ?InfoField, show_logo: bool) !void {
-    if (show_logo) {
-        try writer.print("{s}{s}", .{ art_color, art });
-        try util.writePadding(writer, ArtWidth + 2 -| util.displayWidth(art));
+fn row(writer: anytype, index: usize, s: Style, field: ?InfoField, options: Options, logo: []const []const u8, use_color: bool) !void {
+    if (options.show_logo) {
+        var art_width: usize = 0;
+        switch (options.preset) {
+            .character => if (index < art.height) {
+                const left_padding = (ArtWidth - art.width) / 2;
+                try util.writePadding(writer, left_padding);
+                try art.writeLine(writer, index, use_color);
+                art_width = left_padding + art.width;
+            },
+            .default => {
+                const colors = [_][]const u8{ s.pink, s.purple, s.blue, s.cyan, s.blue, s.purple };
+                const line = if (index < logo.len) logo[index] else "";
+                try writer.print("{s}{s}", .{ colors[index % colors.len], line });
+                art_width = util.displayWidth(line);
+            },
+        }
+        try util.writePadding(writer, ArtWidth + 2 -| art_width);
         try writer.writeAll(s.reset);
     }
 
@@ -362,7 +376,6 @@ fn osLogo(os_id: []const u8) []const []const u8 {
     for (DistroLogos) |logo| {
         if (std.ascii.eqlIgnoreCase(os_id, logo.id)) return logo.art;
     }
-
     return LinuxArt[0..];
 }
 

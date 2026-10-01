@@ -8,6 +8,7 @@ const FieldKind = types.FieldKind;
 const Filter = types.Filter;
 const MaxFilters = types.MaxFilters;
 const OutputFormat = types.OutputFormat;
+const Preset = types.Preset;
 pub const Options = types.Options;
 
 pub fn parseOptions() !Options {
@@ -68,6 +69,12 @@ pub fn parseOptions() !Options {
             options.format = parseFormat(args[i]);
         } else if (std.mem.startsWith(u8, arg, "--format=")) {
             options.format = parseFormat(arg["--format=".len..]);
+        } else if (std.mem.eql(u8, arg, "--preset")) {
+            i += 1;
+            if (i >= args.len) failArgument("missing value for --preset", .{});
+            options.preset = parsePreset(args[i]);
+        } else if (std.mem.startsWith(u8, arg, "--preset=")) {
+            options.preset = parsePreset(arg["--preset=".len..]);
         } else if (std.mem.eql(u8, arg, "--only")) {
             i += 1;
             if (i >= args.len) failArgument("missing value for --only", .{});
@@ -157,13 +164,14 @@ pub fn writeHelp(writer: anytype) !void {
         \\Options:
         \\  -h, --help                 Show this help text
         \\  -V, --version              Show version information
-        \\      --no-logo              Hide the distro logo
+        \\      --no-logo              Hide the logo or preset artwork
         \\      --no-header            Hide the user@host header
         \\      --no-palette           Hide the color palette footer
         \\      --plain, --no-color    Disable ANSI styling
         \\      --color                Force ANSI styling
         \\      --raw                  Print only field values (no logo, header, palette)
         \\      --format <fmt>         Output format: pretty, raw, json, csv
+        \\      --preset <name>        Artwork preset: default (distro logo), character
         \\      --only <list>          Show only fields/categories in a comma list
         \\      --hide <list>          Hide fields/categories in a comma list
         \\      --list-fields          List filterable fields
@@ -180,6 +188,7 @@ pub fn writeHelp(writer: anytype) !void {
         \\Examples:
         \\  neonfetch --version
         \\  neonfetch fields
+        \\  neonfetch --preset character
         \\  neonfetch --no-logo --only cpu,gpu,memory,disk
         \\  neonfetch --hide packages,local_ip --no-palette
         \\  neonfetch --raw --only cpu,gpu
@@ -187,6 +196,12 @@ pub fn writeHelp(writer: anytype) !void {
         \\  neonfetch --format csv --only os,cpu,memory
         \\
     );
+}
+
+fn parsePreset(value: []const u8) Preset {
+    if (std.ascii.eqlIgnoreCase(value, "default")) return .default;
+    if (std.ascii.eqlIgnoreCase(value, "character")) return .character;
+    failArgument("unknown preset: {s} (default, character)", .{value});
 }
 
 fn failArgument(comptime message: []const u8, args: anytype) noreturn {
